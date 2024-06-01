@@ -48,7 +48,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		return fmt.Errorf("failed to load configuration: %v", err)
 	}
 
-	// Create VPC
+	//  VPC
 	vpc, err := ec2.NewVpc(ctx, config.Vpc.Name, &ec2.VpcArgs{
 		CidrBlock:          pulumi.String(config.Vpc.CidrBlock),
 		EnableDnsSupport:   pulumi.Bool(true),
@@ -58,7 +58,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		return err
 	}
 
-	// Create Subnets
+	//  Subnets
 	for _, subnetConfig := range config.Subnets {
 		_, err := ec2.NewSubnet(ctx, subnetConfig.Name, &ec2.SubnetArgs{
 			CidrBlock:           pulumi.String(subnetConfig.CidrBlock),
