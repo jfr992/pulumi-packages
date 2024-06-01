@@ -1,12 +1,11 @@
-module network
+module pulumi-packages
 
-go 1.21
-
-toolchain go1.21.3
+go 1.21.3
 
 require (
-	github.com/pulumi/pulumi-aws/sdk/v6 v6.37.1
-	github.com/pulumi/pulumi/sdk/v3 v3.117.0
+	github.com/pulumi/pulumi-aws/sdk/v6 v6.38.0
+	github.com/pulumi/pulumi/sdk/v3 v3.118.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -88,6 +87,5 @@ require (
 	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.34.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 )
