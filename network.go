@@ -99,8 +99,8 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
 
 		if pulumi.Bool(subnetConfig.Public) {
-			// nat gateway creation
 
+			// nat gateway creation
 			natGateway, err := ec2.NewNatGateway(ctx, "natgateway", &ec2.NatGatewayArgs{
 				AllocationId: eip.ID(),
 				SubnetId:     subnet.ID(),
@@ -111,7 +111,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 
 			ctx.Export("NatGatewayID", natGateway.ID())
 
-			publicRouteTable, err := ec2.NewRouteTable(ctx, "publicRouteTable", &ec2.RouteTableArgs{
+			publicRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
 				VpcId: vpc.ID(),
 				Routes: ec2.RouteTableRouteArray{
 					&ec2.RouteTableRouteArgs{
@@ -124,7 +124,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				return err
 			}
 
-			_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
+			_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-association-%d", subnetPrefix, i), &ec2.RouteTableAssociationArgs{
 				SubnetId:     subnet.ID(),
 				RouteTableId: publicRouteTable.ID(),
 			})
@@ -134,13 +134,6 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				return err
 			}
 
-			_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
-				SubnetId:     subnet.ID(),
-				RouteTableId: publicRouteTable.ID(),
-			})
-			if err != nil {
-				return err
-			}
 			ctx.Export("natGatewayID", natGateway.ID())
 
 		} else {
@@ -158,7 +151,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				return err
 			}
 
-			privateRouteTable, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
+			privateRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
 				VpcId: vpc.ID(),
 				Routes: ec2.RouteTableRouteArray{
 					&ec2.RouteTableRouteArgs{
@@ -171,7 +164,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				return err
 			}
 
-			_, err = ec2.NewRouteTableAssociation(ctx, "privateRouteTableAssoc1", &ec2.RouteTableAssociationArgs{
+			_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-association-%d", subnetPrefix, i), &ec2.RouteTableAssociationArgs{
 				SubnetId:     subnet.ID(),
 				RouteTableId: privateRouteTable.ID(),
 			})
