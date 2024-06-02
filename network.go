@@ -42,13 +42,14 @@ func loadConfig(filename string) (*NetworkConfig, error) {
 }
 
 func CreateNetwork(ctx *pulumi.Context, configFile string) error {
-	// Load configuration from YAML file
+
 	config, err := loadConfig(configFile)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %v", err)
 	}
 
-	//  VPC
+	// vpc creation
+
 	vpc, err := ec2.NewVpc(ctx, config.Vpc.Name, &ec2.VpcArgs{
 		CidrBlock:          pulumi.String(config.Vpc.CidrBlock),
 		EnableDnsSupport:   pulumi.Bool(true),
@@ -57,10 +58,46 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 	if err != nil {
 		return err
 	}
+	// igw creation
 
-	//  Subnets
-	for _, subnetConfig := range config.Subnets {
-		_, err := ec2.NewSubnet(ctx, subnetConfig.Name, &ec2.SubnetArgs{
+	igw, err := ec2.NewInternetGateway(ctx, "config.Igw.Name", &ec2.InternetGatewayArgs{
+		VpcId: vpc.ID(),
+	})
+	if err != nil {
+		return err
+	}
+
+	// eip for natgateway
+
+	eip, err := ec2.NewEip(ctx, "config.Igw.Name", &ec2.EipArgs{})
+	if err != nil {
+		return err
+	}
+
+	// nat gateway creation
+
+	natGateway, err := ec2.NewNatGateway(ctx, "config.Ngw.Name", &ec2.NatGatewayArgs{
+		AllocationId: eip.ID(),
+	})
+	if err != nil {
+		return err
+	}
+
+	ctx.Export("natGatewayID", natGateway.ID())
+
+	// subnet creation
+
+	for i, subnetConfig := range config.Subnets {
+
+		var subnetPrefix string
+
+		if pulumi.Bool(subnetConfig.Public) {
+			subnetPrefix = "subnet-public"
+		} else {
+			subnetPrefix = "subnet-private"
+		}
+
+		subnet, err := ec2.NewSubnet(ctx, fmt.Sprintf("%s-%d", subnetPrefix, i), &ec2.SubnetArgs{
 			CidrBlock:           pulumi.String(subnetConfig.CidrBlock),
 			VpcId:               vpc.ID(),
 			AvailabilityZone:    pulumi.String(subnetConfig.Az),
@@ -69,6 +106,76 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		if err != nil {
 			return err
 		}
+
+		if pulumi.Bool(subnetConfig.Public) {
+
+			ctx.Export("subnet", natGateway.ID())
+
+			publicRouteTable, err := ec2.NewRouteTable(ctx, "publicRouteTable", &ec2.RouteTableArgs{
+				VpcId: vpc.ID(),
+				Routes: ec2.RouteTableRouteArray{
+					&ec2.RouteTableRouteArgs{
+						CidrBlock: pulumi.String("0.0.0.0/0"),
+						GatewayId: igw.ID(),
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
+
+			_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
+				SubnetId:     subnet.ID(),
+				RouteTableId: publicRouteTable.ID(),
+			})
+			if err != nil {
+				return err
+			}
+
+			_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
+				SubnetId:     subnet.ID(),
+				RouteTableId: publicRouteTable.ID(),
+			})
+			if err != nil {
+				return err
+			}
+		} else if !pulumi.Bool(subnetConfig.Public) {
+
+			subnet, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
+				VpcId: vpc.ID(),
+				Routes: ec2.RouteTableRouteArray{
+					&ec2.RouteTableRouteArgs{
+						CidrBlock:    pulumi.String("0.0.0.0/0"),
+						NatGatewayId: natGateway.ID(),
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
+
+			privateRouteTable, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
+				VpcId: vpc.ID(),
+				Routes: ec2.RouteTableRouteArray{
+					&ec2.RouteTableRouteArgs{
+						CidrBlock:    pulumi.String("0.0.0.0/0"),
+						NatGatewayId: natGateway.ID(),
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
+
+			_, err = ec2.NewRouteTableAssociation(ctx, "privateRouteTableAssoc1", &ec2.RouteTableAssociationArgs{
+				SubnetId:     subnet.ID(),
+				RouteTableId: privateRouteTable.ID(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 
 	return nil

@@ -1,7 +1,0 @@
-name: network
-runtime: go
-description: pulumi basic network package
-config:
-  pulumi:tags:
-    value:
-      pulumi:template: aws-go
