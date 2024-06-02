@@ -60,7 +60,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 	}
 	// igw creation
 
-	igw, err := ec2.NewInternetGateway(ctx, "config.Igw.Name", &ec2.InternetGatewayArgs{
+	_, err = ec2.NewInternetGateway(ctx, "config.Igw.Name", &ec2.InternetGatewayArgs{
 		VpcId: vpc.ID(),
 	})
 	if err != nil {
