@@ -98,14 +98,18 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		}
 
 		subnet, err := ec2.NewSubnet(ctx, fmt.Sprintf("%s-%d", subnetPrefix, i), &ec2.SubnetArgs{
+
 			CidrBlock:           pulumi.String(subnetConfig.CidrBlock),
 			VpcId:               vpc.ID(),
 			AvailabilityZone:    pulumi.String(subnetConfig.Az),
 			MapPublicIpOnLaunch: pulumi.Bool(subnetConfig.Public),
 		})
+
 		if err != nil {
 			return err
 		}
+
+		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
 
 		if pulumi.Bool(subnetConfig.Public) {
 
@@ -126,7 +130,9 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				SubnetId:     subnet.ID(),
 				RouteTableId: publicRouteTable.ID(),
 			})
+
 			if err != nil {
+				ctx.Log.Error("fatal error", nil)
 				return err
 			}
 
@@ -137,6 +143,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 			if err != nil {
 				return err
 			}
+
 		} else if !pulumi.Bool(subnetConfig.Public) {
 
 			subnet, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
@@ -175,6 +182,5 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		}
 
 	}
-
 	return nil
 }
