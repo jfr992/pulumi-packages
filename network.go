@@ -15,6 +15,7 @@ type VpcConfig struct {
 }
 
 type SubnetConfig struct {
+	Name      string `yaml:"name"`
 	CidrBlock string `yaml:"cidr_block"`
 	Az        string `yaml:"az"`
 	Public    bool   `yaml:"public"`
@@ -59,7 +60,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 	}
 	// igw creation
 
-	_, err = ec2.NewInternetGateway(ctx, "config.Igw.Name", &ec2.InternetGatewayArgs{
+	igw, err := ec2.NewInternetGateway(ctx, "config.Igw.Name", &ec2.InternetGatewayArgs{
 		VpcId: vpc.ID(),
 	})
 	if err != nil {
@@ -68,21 +69,21 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 
 	// eip for natgateway
 
-	// eip, err := ec2.NewEip(ctx, "config.Igw.Name", &ec2.EipArgs{})
-	// if err != nil {
-	// 	return err
-	// }
+	eip, err := ec2.NewEip(ctx, "config.Igw.Name", &ec2.EipArgs{})
+	if err != nil {
+		return err
+	}
 
-	// // nat gateway creation
+	// nat gateway creation
 
-	// natGateway, err := ec2.NewNatGateway(ctx, "config.Ngw.Name", &ec2.NatGatewayArgs{
-	// 	AllocationId: eip.ID(),
-	// })
-	// if err != nil {
-	// 	return err
-	// }
+	natGateway, err := ec2.NewNatGateway(ctx, "config.Ngw.Name", &ec2.NatGatewayArgs{
+		AllocationId: eip.ID(),
+	})
+	if err != nil {
+		return err
+	}
 
-	// ctx.Export("natGatewayID", natGateway.ID())
+	ctx.Export("natGatewayID", natGateway.ID())
 
 	// subnet creation
 
@@ -110,75 +111,75 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 
 		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
 
-		// if pulumi.Bool(subnetConfig.Public) {
+		if pulumi.Bool(subnetConfig.Public) {
 
-		// 	publicRouteTable, err := ec2.NewRouteTable(ctx, "publicRouteTable", &ec2.RouteTableArgs{
-		// 		VpcId: vpc.ID(),
-		// 		Routes: ec2.RouteTableRouteArray{
-		// 			&ec2.RouteTableRouteArgs{
-		// 				CidrBlock: pulumi.String("0.0.0.0/0"),
-		// 				GatewayId: igw.ID(),
-		// 			},
-		// 		},
-		// 	})
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			publicRouteTable, err := ec2.NewRouteTable(ctx, "publicRouteTable", &ec2.RouteTableArgs{
+				VpcId: vpc.ID(),
+				Routes: ec2.RouteTableRouteArray{
+					&ec2.RouteTableRouteArgs{
+						CidrBlock: pulumi.String("0.0.0.0/0"),
+						GatewayId: igw.ID(),
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
 
-		// 	_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
-		// 		SubnetId:     subnet.ID(),
-		// 		RouteTableId: publicRouteTable.ID(),
-		// 	})
+			_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
+				SubnetId:     subnet.ID(),
+				RouteTableId: publicRouteTable.ID(),
+			})
 
-		// 	if err != nil {
-		// 		ctx.Log.Error("fatal error", nil)
-		// 		return err
-		// 	}
+			if err != nil {
+				ctx.Log.Error("fatal error", nil)
+				return err
+			}
 
-		// 	_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
-		// 		SubnetId:     subnet.ID(),
-		// 		RouteTableId: publicRouteTable.ID(),
-		// 	})
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			_, err = ec2.NewRouteTableAssociation(ctx, "publicRouteTableAssoc", &ec2.RouteTableAssociationArgs{
+				SubnetId:     subnet.ID(),
+				RouteTableId: publicRouteTable.ID(),
+			})
+			if err != nil {
+				return err
+			}
 
-		// } else if !pulumi.Bool(subnetConfig.Public) {
+		} else if !pulumi.Bool(subnetConfig.Public) {
 
-		// 	subnet, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
-		// 		VpcId: vpc.ID(),
-		// 		Routes: ec2.RouteTableRouteArray{
-		// 			&ec2.RouteTableRouteArgs{
-		// 				CidrBlock:    pulumi.String("0.0.0.0/0"),
-		// 				NatGatewayId: natGateway.ID(),
-		// 			},
-		// 		},
-		// 	})
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			subnet, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
+				VpcId: vpc.ID(),
+				Routes: ec2.RouteTableRouteArray{
+					&ec2.RouteTableRouteArgs{
+						CidrBlock:    pulumi.String("0.0.0.0/0"),
+						NatGatewayId: natGateway.ID(),
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
 
-		// 	privateRouteTable, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
-		// 		VpcId: vpc.ID(),
-		// 		Routes: ec2.RouteTableRouteArray{
-		// 			&ec2.RouteTableRouteArgs{
-		// 				CidrBlock:    pulumi.String("0.0.0.0/0"),
-		// 				NatGatewayId: natGateway.ID(),
-		// 			},
-		// 		},
-		// 	})
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			privateRouteTable, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
+				VpcId: vpc.ID(),
+				Routes: ec2.RouteTableRouteArray{
+					&ec2.RouteTableRouteArgs{
+						CidrBlock:    pulumi.String("0.0.0.0/0"),
+						NatGatewayId: natGateway.ID(),
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
 
-		// 	_, err = ec2.NewRouteTableAssociation(ctx, "privateRouteTableAssoc1", &ec2.RouteTableAssociationArgs{
-		// 		SubnetId:     subnet.ID(),
-		// 		RouteTableId: privateRouteTable.ID(),
-		// 	})
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// }
+			_, err = ec2.NewRouteTableAssociation(ctx, "privateRouteTableAssoc1", &ec2.RouteTableAssociationArgs{
+				SubnetId:     subnet.ID(),
+				RouteTableId: privateRouteTable.ID(),
+			})
+			if err != nil {
+				return err
+			}
+		}
 
 	}
 	return nil
