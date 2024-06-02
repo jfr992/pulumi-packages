@@ -15,7 +15,6 @@ type VpcConfig struct {
 }
 
 type SubnetConfig struct {
-	Name      string `yaml:"name"`
 	CidrBlock string `yaml:"cidr_block"`
 	Az        string `yaml:"az"`
 	Public    bool   `yaml:"public"`
