@@ -138,19 +138,6 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 
 		} else {
 
-			subnet, err := ec2.NewRouteTable(ctx, "privateRouteTable", &ec2.RouteTableArgs{
-				VpcId: vpc.ID(),
-				Routes: ec2.RouteTableRouteArray{
-					&ec2.RouteTableRouteArgs{
-						CidrBlock: pulumi.String("0.0.0.0/0"),
-						//NatGatewayId: natGateway.ID(),
-					},
-				},
-			})
-			if err != nil {
-				return err
-			}
-
 			privateRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
 				VpcId: vpc.ID(),
 				Routes: ec2.RouteTableRouteArray{
