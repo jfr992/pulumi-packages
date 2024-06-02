@@ -109,8 +109,6 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 
 		if pulumi.Bool(subnetConfig.Public) {
 
-			ctx.Export("subnet", natGateway.ID())
-
 			publicRouteTable, err := ec2.NewRouteTable(ctx, "publicRouteTable", &ec2.RouteTableArgs{
 				VpcId: vpc.ID(),
 				Routes: ec2.RouteTableRouteArray{
