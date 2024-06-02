@@ -69,21 +69,21 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 
 	// eip for natgateway
 
-	eip, err := ec2.NewEip(ctx, "config.Igw.Name", &ec2.EipArgs{})
-	if err != nil {
-		return err
-	}
+	// eip, err := ec2.NewEip(ctx, "config.Igw.Name", &ec2.EipArgs{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	// nat gateway creation
+	// // nat gateway creation
 
-	natGateway, err := ec2.NewNatGateway(ctx, "config.Ngw.Name", &ec2.NatGatewayArgs{
-		AllocationId: eip.ID(),
-	})
-	if err != nil {
-		return err
-	}
+	// natGateway, err := ec2.NewNatGateway(ctx, "config.Ngw.Name", &ec2.NatGatewayArgs{
+	// 	AllocationId: eip.ID(),
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
-	ctx.Export("natGatewayID", natGateway.ID())
+	// ctx.Export("natGatewayID", natGateway.ID())
 
 	// subnet creation
 
