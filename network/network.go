@@ -71,7 +71,6 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		return err
 	}
 
-	// Declare the natGateway variable outside the loop
 	var natGateway *ec2.NatGateway
 
 	// subnet creation
@@ -92,6 +91,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		if err != nil {
 			return err
 		}
+
 		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
 
 		if subnetConfig.Public {
@@ -131,7 +131,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				Routes: ec2.RouteTableRouteArray{
 					&ec2.RouteTableRouteArgs{
 						CidrBlock:    pulumi.String("0.0.0.0/0"),
-						NatGatewayId: natGateway.ID(), // Now you can use natGateway here
+						NatGatewayId: natGateway.ID(),
 					},
 				},
 			})
