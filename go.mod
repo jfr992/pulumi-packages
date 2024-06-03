@@ -1,4 +1,4 @@
-module pulumi-packages
+module github.com/jfr992/pulumi-packages
 
 go 1.21
 
