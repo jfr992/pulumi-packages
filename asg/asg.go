@@ -38,7 +38,7 @@ func loadConfig(filename string) (*asgConfig, error) {
 	return &config, nil
 }
 
-func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID string, targetGroupArn []string, sourceSecurityGroupId string) error {
+func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
 	userDataBytes, err := os.ReadFile(userdata)
 
 	if err != nil {
@@ -58,7 +58,7 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID st
 
 		instancesSecurityGroup, err := ec2.NewSecurityGroup(ctx, "instanceSecurityGroup", &ec2.SecurityGroupArgs{
 			Description: pulumi.String("Security group for the instances"),
-			VpcId:       pulumi.String(vpcID),
+			VpcId:       vpcID,
 		})
 		if err != nil {
 			return err
@@ -71,7 +71,7 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID st
 				FromPort:              pulumi.Int(port),
 				ToPort:                pulumi.Int(port),
 				Protocol:              pulumi.String("tcp"),
-				SourceSecurityGroupId: pulumi.String(sourceSecurityGroupId),
+				SourceSecurityGroupId: sourceSecurityGroupId,
 			})
 			if err != nil {
 				return err
@@ -101,7 +101,9 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID st
 				Id:      lt.ID(),
 				Version: pulumi.String("$Latest"),
 			},
-			TargetGroupArns: pulumi.ToStringArray(targetGroupArn),
+			TargetGroupArns: pulumi.All(targetGroupArn).ApplyT(func(ar string) []string {
+				return []string{ar}
+			}).(pulumi.StringArrayInput),
 		}, pulumi.DependsOn([]pulumi.Resource{lt}))
 
 		if err != nil {

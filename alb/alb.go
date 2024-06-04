@@ -10,19 +10,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type albConfig struct {
-	Port       int      `yaml:"port"`
-	Input_CIDR []string `yaml:"allowed_cidrs"`
+type ALBConfig struct {
+	Port      int      `yaml:"port"`
+	InputCIDR []string `yaml:"allowed_cidrs"`
 }
 
-func loadConfig(filename string) (*albConfig, error) {
-
+func loadConfig(filename string) (*ALBConfig, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var config albConfig
+	var config ALBConfig
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
@@ -31,24 +30,23 @@ func loadConfig(filename string) (*albConfig, error) {
 	return &config, nil
 }
 
-func createALB(ctx *pulumi.Context, configFile string, vpcID string, subnets []string) error {
-
+func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, subnets pulumi.StringArrayOutput) (pulumi.StringOutput, pulumi.IDOutput, error) {
 	config, err := loadConfig(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %v", err)
+		return pulumi.StringOutput{}, pulumi.IDOutput{}, fmt.Errorf("failed to load configuration: %v", err)
 	}
 
 	securityGroup, err := ec2.NewSecurityGroup(ctx, "albSecurityGroup", &ec2.SecurityGroupArgs{
 		Name:        pulumi.String("ALB Security group"),
 		Description: pulumi.String("Allow http inbound traffic"),
-		VpcId:       pulumi.String(vpcID),
+		VpcId:       vpcID,
 		Ingress: ec2.SecurityGroupIngressArray{
 			&ec2.SecurityGroupIngressArgs{
 				Description: pulumi.String("allow TCP"),
 				FromPort:    pulumi.Int(config.Port),
 				ToPort:      pulumi.Int(config.Port),
 				Protocol:    pulumi.String("tcp"),
-				CidrBlocks:  pulumi.ToStringArray(config.Input_CIDR),
+				CidrBlocks:  pulumi.ToStringArray(config.InputCIDR),
 			},
 		},
 		Egress: ec2.SecurityGroupEgressArray{
@@ -60,25 +58,25 @@ func createALB(ctx *pulumi.Context, configFile string, vpcID string, subnets []s
 		},
 	})
 	if err != nil {
-		return err
+		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
 	}
 
 	alb, err := lb.NewLoadBalancer(ctx, "appLoadBalancer", &lb.LoadBalancerArgs{
 		SecurityGroups: pulumi.StringArray{securityGroup.ID()},
-		Subnets:        pulumi.ToStringArray(subnets), // Replace with actual Subnet IDs
+		Subnets:        subnets,
 	})
 	if err != nil {
-		return err
+		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
 	}
 
 	targetGroup, err := lb.NewTargetGroup(ctx, "appTargetGroup", &lb.TargetGroupArgs{
 		Port:       pulumi.Int(80),
 		Protocol:   pulumi.String("HTTP"),
-		VpcId:      pulumi.String(vpcID),
+		VpcId:      vpcID,
 		TargetType: pulumi.String("instance"),
 	})
 	if err != nil {
-		return err
+		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
 	}
 
 	_, err = lb.NewListener(ctx, "listener", &lb.ListenerArgs{
@@ -92,8 +90,8 @@ func createALB(ctx *pulumi.Context, configFile string, vpcID string, subnets []s
 		},
 	})
 	if err != nil {
-		return err
+		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
 	}
 
-	return nil
+	return targetGroup.Arn, securityGroup.ID(), nil
 }
