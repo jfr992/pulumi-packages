@@ -41,6 +41,7 @@ func loadConfig(filename string) (*asgConfig, error) {
 }
 
 func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
+
 	userDataBytes, err := os.ReadFile(userdata)
 
 	if err != nil {
@@ -56,63 +57,59 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 		return fmt.Errorf("failed to load configuration: %v", err)
 	}
 
-	pulumi.Run(func(ctx *pulumi.Context) error {
+	instancesSecurityGroup, err := ec2.NewSecurityGroup(ctx, "instanceSecurityGroup", &ec2.SecurityGroupArgs{
+		Description: pulumi.String("Security group for the instances"),
+		VpcId:       vpcID,
+	})
+	if err != nil {
+		return err
+	}
 
-		instancesSecurityGroup, err := ec2.NewSecurityGroup(ctx, "instanceSecurityGroup", &ec2.SecurityGroupArgs{
-			Description: pulumi.String("Security group for the instances"),
-			VpcId:       vpcID,
+	for _, port := range config.ASG.Ports {
+		_, err := ec2.NewSecurityGroupRule(ctx, fmt.Sprintf("ingressRule-%d", port), &ec2.SecurityGroupRuleArgs{
+			Type:                  pulumi.String("ingress"),
+			SecurityGroupId:       instancesSecurityGroup.ID(),
+			FromPort:              pulumi.Int(port),
+			ToPort:                pulumi.Int(port),
+			Protocol:              pulumi.String("tcp"),
+			SourceSecurityGroupId: sourceSecurityGroupId,
 		})
 		if err != nil {
 			return err
 		}
+	}
+	lt, err := ec2.NewLaunchTemplate(ctx, "launchtemplate", &ec2.LaunchTemplateArgs{
+		NamePrefix:          pulumi.String(config.ASG.ASGName),
+		ImageId:             pulumi.String(config.ASG.AMI_ID),
+		InstanceType:        pulumi.String(config.ASG.InstanceType),
+		VpcSecurityGroupIds: pulumi.StringArray{instancesSecurityGroup.ID()},
+		UserData:            pulumi.String(userData),
+		IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileArgs{
+			Arn:  pulumi.String("string"),
+			Name: pulumi.String("string"),
+		},
+	}, pulumi.DependsOn([]pulumi.Resource{instancesSecurityGroup}))
+	if err != nil {
+		return err
+	}
 
-		for _, port := range config.ASG.Ports {
-			_, err := ec2.NewSecurityGroupRule(ctx, fmt.Sprintf("ingressRule-%d", port), &ec2.SecurityGroupRuleArgs{
-				Type:                  pulumi.String("ingress"),
-				SecurityGroupId:       instancesSecurityGroup.ID(),
-				FromPort:              pulumi.Int(port),
-				ToPort:                pulumi.Int(port),
-				Protocol:              pulumi.String("tcp"),
-				SourceSecurityGroupId: sourceSecurityGroupId,
-			})
-			if err != nil {
-				return err
-			}
-		}
-		lt, err := ec2.NewLaunchTemplate(ctx, "launchtemplate", &ec2.LaunchTemplateArgs{
-			NamePrefix:          pulumi.String(config.ASG.ASGName),
-			ImageId:             pulumi.String(config.ASG.AMI_ID),
-			InstanceType:        pulumi.String(config.ASG.InstanceType),
-			VpcSecurityGroupIds: pulumi.StringArray{instancesSecurityGroup.ID()},
-			UserData:            pulumi.String(userData),
-			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileArgs{
-				Arn:  pulumi.String("string"),
-				Name: pulumi.String("string"),
-			},
-		}, pulumi.DependsOn([]pulumi.Resource{instancesSecurityGroup}))
-		if err != nil {
-			return err
-		}
+	_, err = autoscaling.NewGroup(ctx, "asg", &autoscaling.GroupArgs{
+		AvailabilityZones: pulumi.ToStringArray(config.ASG.AvailabilityZones),
+		DesiredCapacity:   pulumi.Int(config.ASG.DesiredCapacity),
+		MaxSize:           pulumi.Int(config.ASG.DesiredCapacity),
+		MinSize:           pulumi.Int(config.ASG.DesiredCapacity),
+		LaunchTemplate: &autoscaling.GroupLaunchTemplateArgs{
+			Id:      lt.ID(),
+			Version: pulumi.String("$Latest"),
+		},
+		TargetGroupArns: pulumi.All(targetGroupArn).ApplyT(func(ar string) []string {
+			return []string{ar}
+		}).(pulumi.StringArrayInput),
+	}, pulumi.DependsOn([]pulumi.Resource{lt}))
 
-		_, err = autoscaling.NewGroup(ctx, "asg", &autoscaling.GroupArgs{
-			AvailabilityZones: pulumi.ToStringArray(config.ASG.AvailabilityZones),
-			DesiredCapacity:   pulumi.Int(config.ASG.DesiredCapacity),
-			MaxSize:           pulumi.Int(config.ASG.DesiredCapacity),
-			MinSize:           pulumi.Int(config.ASG.DesiredCapacity),
-			LaunchTemplate: &autoscaling.GroupLaunchTemplateArgs{
-				Id:      lt.ID(),
-				Version: pulumi.String("$Latest"),
-			},
-			TargetGroupArns: pulumi.All(targetGroupArn).ApplyT(func(ar string) []string {
-				return []string{ar}
-			}).(pulumi.StringArrayInput),
-		}, pulumi.DependsOn([]pulumi.Resource{lt}))
+	if err != nil {
+		return err
+	}
 
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
 	return nil
 }
