@@ -11,8 +11,10 @@ import (
 )
 
 type ALBConfig struct {
-	Port      int      `yaml:"port"`
-	InputCIDR []string `yaml:"allowed_cidrs"`
+	ALB struct {
+		Port        int      `yaml:"port"`
+		AllowedCIDR []string `yaml:"allowed_cidrs"`
+	} `yaml:"alb"`
 }
 
 func loadConfig(filename string) (*ALBConfig, error) {
@@ -44,10 +46,10 @@ func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, su
 		Ingress: ec2.SecurityGroupIngressArray{
 			&ec2.SecurityGroupIngressArgs{
 				Description: pulumi.String("allow TCP"),
-				FromPort:    pulumi.Int(config.Port),
-				ToPort:      pulumi.Int(config.Port),
+				FromPort:    pulumi.Int(config.ALB.Port),
+				ToPort:      pulumi.Int(config.ALB.Port),
 				Protocol:    pulumi.String("tcp"),
-				CidrBlocks:  pulumi.ToStringArray(config.InputCIDR),
+				CidrBlocks:  pulumi.ToStringArray(config.ALB.AllowedCIDR),
 			},
 		},
 	})
@@ -58,13 +60,13 @@ func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, su
 	alb, err := lb.NewLoadBalancer(ctx, "appLoadBalancer", &lb.LoadBalancerArgs{
 		SecurityGroups: pulumi.StringArray{securityGroup.ID()},
 		Subnets:        subnets,
-	})
+	}, pulumi.DependsOn([]pulumi.Resource{securityGroup}))
 	if err != nil {
 		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
 	}
 
 	targetGroup, err := lb.NewTargetGroup(ctx, "appTargetGroup", &lb.TargetGroupArgs{
-		Port:       pulumi.Int(config.Port),
+		Port:       pulumi.Int(config.ALB.Port),
 		Protocol:   pulumi.String("HTTP"),
 		VpcId:      vpcID,
 		TargetType: pulumi.String("instance"),
@@ -75,14 +77,14 @@ func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, su
 
 	_, err = lb.NewListener(ctx, "listener", &lb.ListenerArgs{
 		LoadBalancerArn: alb.Arn,
-		Port:            pulumi.Int(config.Port),
+		Port:            pulumi.Int(config.ALB.Port),
 		DefaultActions: lb.ListenerDefaultActionArray{
 			&lb.ListenerDefaultActionArgs{
 				Type:           pulumi.String("forward"),
 				TargetGroupArn: targetGroup.Arn,
 			},
 		},
-	})
+	}, pulumi.DependsOn([]pulumi.Resource{targetGroup, alb}))
 	if err != nil {
 		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
 	}

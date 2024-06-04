@@ -12,9 +12,9 @@ import (
 )
 
 type asgConfig struct {
-	Name              string   `yaml:"name"`
-	Ami_Id            string   `yaml:"ami-id"`
-	Instance_Type     string   `yaml:"instance-type"`
+	ASGName           string   `yaml:"name"`
+	AMI_ID            string   `yaml:"ami-id"`
+	InstanceType      string   `yaml:"instance-type"`
 	MinSize           int      `yaml:"min-size"`
 	MaxSize           int      `yaml:"max-size"`
 	DesiredCapacity   int      `yaml:"desired-capacity"`
@@ -78,9 +78,9 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 			}
 		}
 		lt, err := ec2.NewLaunchTemplate(ctx, "launchtemplate", &ec2.LaunchTemplateArgs{
-			NamePrefix:          pulumi.String(config.Name),
-			ImageId:             pulumi.String(config.Ami_Id),
-			InstanceType:        pulumi.String(config.Instance_Type),
+			NamePrefix:          pulumi.String(config.ASGName),
+			ImageId:             pulumi.String(config.AMI_ID),
+			InstanceType:        pulumi.String(config.InstanceType),
 			VpcSecurityGroupIds: pulumi.StringArray{instancesSecurityGroup.ID()},
 			UserData:            pulumi.String(userData),
 			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileArgs{
