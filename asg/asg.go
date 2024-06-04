@@ -12,14 +12,16 @@ import (
 )
 
 type asgConfig struct {
-	ASGName           string   `yaml:"name"`
-	AMI_ID            string   `yaml:"ami-id"`
-	InstanceType      string   `yaml:"instance-type"`
-	MinSize           int      `yaml:"min-size"`
-	MaxSize           int      `yaml:"max-size"`
-	DesiredCapacity   int      `yaml:"desired-capacity"`
-	AvailabilityZones []string `yaml:"azs"`
-	Ports             []int    `yaml:"ports"`
+	ASG struct {
+		ASGName           string   `yaml:"name"`
+		AMI_ID            string   `yaml:"ami-id"`
+		InstanceType      string   `yaml:"instance-type"`
+		MinSize           int      `yaml:"min-size"`
+		MaxSize           int      `yaml:"max-size"`
+		DesiredCapacity   int      `yaml:"desired-capacity"`
+		AvailabilityZones []string `yaml:"azs"`
+		Ports             []int    `yaml:"ports"`
+	} `yaml:"asg"`
 }
 
 func loadConfig(filename string) (*asgConfig, error) {
@@ -64,7 +66,7 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 			return err
 		}
 
-		for _, port := range config.Ports {
+		for _, port := range config.ASG.Ports {
 			_, err := ec2.NewSecurityGroupRule(ctx, fmt.Sprintf("ingressRule-%d", port), &ec2.SecurityGroupRuleArgs{
 				Type:                  pulumi.String("ingress"),
 				SecurityGroupId:       instancesSecurityGroup.ID(),
@@ -78,9 +80,9 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 			}
 		}
 		lt, err := ec2.NewLaunchTemplate(ctx, "launchtemplate", &ec2.LaunchTemplateArgs{
-			NamePrefix:          pulumi.String(config.ASGName),
-			ImageId:             pulumi.String(config.AMI_ID),
-			InstanceType:        pulumi.String(config.InstanceType),
+			NamePrefix:          pulumi.String(config.ASG.ASGName),
+			ImageId:             pulumi.String(config.ASG.AMI_ID),
+			InstanceType:        pulumi.String(config.ASG.InstanceType),
 			VpcSecurityGroupIds: pulumi.StringArray{instancesSecurityGroup.ID()},
 			UserData:            pulumi.String(userData),
 			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileArgs{
@@ -93,10 +95,10 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 		}
 
 		_, err = autoscaling.NewGroup(ctx, "asg", &autoscaling.GroupArgs{
-			AvailabilityZones: pulumi.ToStringArray(config.AvailabilityZones),
-			DesiredCapacity:   pulumi.Int(config.DesiredCapacity),
-			MaxSize:           pulumi.Int(config.MaxSize),
-			MinSize:           pulumi.Int(config.MinSize),
+			AvailabilityZones: pulumi.ToStringArray(config.ASG.AvailabilityZones),
+			DesiredCapacity:   pulumi.Int(config.ASG.DesiredCapacity),
+			MaxSize:           pulumi.Int(config.ASG.DesiredCapacity),
+			MinSize:           pulumi.Int(config.ASG.DesiredCapacity),
 			LaunchTemplate: &autoscaling.GroupLaunchTemplateArgs{
 				Id:      lt.ID(),
 				Version: pulumi.String("$Latest"),
