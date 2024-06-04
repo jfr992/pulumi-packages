@@ -41,10 +41,10 @@ func loadConfig(filename string) (*NetworkConfig, error) {
 	return &config, nil
 }
 
-func CreateNetwork(ctx *pulumi.Context, configFile string) error {
+func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pulumi.StringArrayOutput, error) {
 	config, err := loadConfig(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %v", err)
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, fmt.Errorf("failed to load configuration: %v", err)
 	}
 
 	// vpc creation
@@ -54,7 +54,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		EnableDnsHostnames: pulumi.Bool(true),
 	})
 	if err != nil {
-		return err
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 	}
 
 	// igw creation
@@ -62,16 +62,17 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 		VpcId: vpc.ID(),
 	})
 	if err != nil {
-		return err
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 	}
 
 	// eip for natgateway
 	eip, err := ec2.NewEip(ctx, "elasticip", &ec2.EipArgs{})
 	if err != nil {
-		return err
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 	}
 
 	var natGateway *ec2.NatGateway
+	subnetIDs := []pulumi.StringOutput{}
 
 	// subnet creation
 	for i, subnetConfig := range config.Subnets {
@@ -89,10 +90,9 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 			MapPublicIpOnLaunch: pulumi.Bool(subnetConfig.Public),
 		})
 		if err != nil {
-			return err
+			return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 		}
-
-		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
+		subnetIDs = append(subnetIDs, subnet.ID().ToStringOutput())
 
 		if subnetConfig.Public {
 			// nat gateway creation
@@ -101,7 +101,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				SubnetId:     subnet.ID(),
 			})
 			if err != nil {
-				return err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 			}
 
 			publicRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
@@ -114,7 +114,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				},
 			})
 			if err != nil {
-				return err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 			}
 
 			_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-association-%d", subnetPrefix, i), &ec2.RouteTableAssociationArgs{
@@ -123,7 +123,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 			})
 			if err != nil {
 				ctx.Log.Error("fatal error", nil)
-				return err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 			}
 		} else {
 			privateRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
@@ -136,7 +136,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				},
 			})
 			if err != nil {
-				return err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 			}
 
 			_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-association-%d", subnetPrefix, i), &ec2.RouteTableAssociationArgs{
@@ -144,10 +144,10 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) error {
 				RouteTableId: privateRouteTable.ID(),
 			})
 			if err != nil {
-				return err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 			}
 		}
 	}
 
-	return nil
+	return vpc.ID(), pulumi.ToStringArrayOutput(subnetIDs), nil
 }

@@ -19,7 +19,6 @@ type asgConfig struct {
 	MaxSize           int      `yaml:"max-size"`
 	DesiredCapacity   int      `yaml:"desired-capacity"`
 	AvailabilityZones []string `yaml:"azs"`
-	VPCId             string   `yaml:"vpcid"`
 	Ports             []int    `yaml:"ports"`
 }
 
@@ -39,7 +38,7 @@ func loadConfig(filename string) (*asgConfig, error) {
 	return &config, nil
 }
 
-func createASG(ctx *pulumi.Context, configFile string, userdata string, targetGroupArn []string, sourceSecurityGroupId string) error {
+func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID string, targetGroupArn []string, sourceSecurityGroupId string) error {
 	userDataBytes, err := os.ReadFile(userdata)
 
 	if err != nil {
@@ -59,7 +58,7 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, targetGr
 
 		instancesSecurityGroup, err := ec2.NewSecurityGroup(ctx, "instanceSecurityGroup", &ec2.SecurityGroupArgs{
 			Description: pulumi.String("Security group for the instances"),
-			VpcId:       pulumi.String(config.VPCId),
+			VpcId:       pulumi.String(vpcID),
 		})
 		if err != nil {
 			return err
