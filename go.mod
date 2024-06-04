@@ -1,12 +1,10 @@
 module github.com/jfr992/pulumi-packages
 
-go 1.21
-
-toolchain go1.21.3
+go 1.21.3
 
 require (
-	github.com/pulumi/pulumi-aws/sdk/v6 v6.37.1
-	github.com/pulumi/pulumi/sdk/v3 v3.117.0
+	github.com/pulumi/pulumi-aws/sdk/v6 v6.38.0
+	github.com/pulumi/pulumi/sdk/v3 v3.118.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
