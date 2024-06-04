@@ -40,7 +40,6 @@ func loadConfig(filename string) (*asgConfig, error) {
 	return &config, nil
 }
 
-// Define a function to convert pulumi.StringOutput to pulumi.String
 func stringOutputToString(input pulumi.StringOutput) pulumi.String {
 	var result pulumi.String
 	input.ApplyT(func(v string) string {
@@ -95,10 +94,6 @@ func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 		InstanceType:        pulumi.String(config.ASG.InstanceType),
 		VpcSecurityGroupIds: pulumi.StringArray{instancesSecurityGroup.ID()},
 		UserData:            pulumi.String(userData),
-		IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileArgs{
-			Arn:  pulumi.String("string"),
-			Name: pulumi.String("string"),
-		},
 	}, pulumi.DependsOn([]pulumi.Resource{instancesSecurityGroup}))
 	if err != nil {
 		return err
