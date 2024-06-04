@@ -40,15 +40,7 @@ func loadConfig(filename string) (*asgConfig, error) {
 	return &config, nil
 }
 
-func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
-
-	userDataBytes, err := os.ReadFile(userdata)
-
-	if err != nil {
-		return fmt.Errorf("failed to read user data script: %v", err)
-	}
-
-	userData := base64.StdEncoding.EncodeToString(userDataBytes)
+func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
 
 	// loading config
 
@@ -56,6 +48,13 @@ func createASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %v", err)
 	}
+	userDataBytes, err := os.ReadFile(userdata)
+
+	if err != nil {
+		return fmt.Errorf("failed to read user data script: %v", err)
+	}
+
+	userData := base64.StdEncoding.EncodeToString(userDataBytes)
 
 	instancesSecurityGroup, err := ec2.NewSecurityGroup(ctx, "instanceSecurityGroup", &ec2.SecurityGroupArgs{
 		Description: pulumi.String("Security group for the instances"),
