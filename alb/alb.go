@@ -31,6 +31,7 @@ func loadConfig(filename string) (*ALBConfig, error) {
 }
 
 func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, subnets pulumi.StringArrayOutput) (pulumi.StringOutput, pulumi.IDOutput, error) {
+
 	config, err := loadConfig(configFile)
 	if err != nil {
 		return pulumi.StringOutput{}, pulumi.IDOutput{}, fmt.Errorf("failed to load configuration: %v", err)
@@ -49,13 +50,6 @@ func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, su
 				CidrBlocks:  pulumi.ToStringArray(config.InputCIDR),
 			},
 		},
-		Egress: ec2.SecurityGroupEgressArray{
-			&ec2.SecurityGroupEgressArgs{
-				FromPort: pulumi.Int(0),
-				ToPort:   pulumi.Int(0),
-				Protocol: pulumi.String("-1"),
-			},
-		},
 	})
 	if err != nil {
 		return pulumi.StringOutput{}, pulumi.IDOutput{}, err
@@ -70,7 +64,7 @@ func CreateALB(ctx *pulumi.Context, configFile string, vpcID pulumi.IDOutput, su
 	}
 
 	targetGroup, err := lb.NewTargetGroup(ctx, "appTargetGroup", &lb.TargetGroupArgs{
-		Port:       pulumi.Int(80),
+		Port:       pulumi.Int(config.Port),
 		Protocol:   pulumi.String("HTTP"),
 		VpcId:      vpcID,
 		TargetType: pulumi.String("instance"),
