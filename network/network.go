@@ -72,7 +72,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 	}
 
 	var natGateway *ec2.NatGateway
-	subnetIDs := []pulumi.StringOutput{}
+	var subnetIDs pulumi.StringArray
 
 	// subnet creation
 	for i, subnetConfig := range config.Subnets {
@@ -92,6 +92,8 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 		if err != nil {
 			return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
 		}
+
+		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
 		subnetIDs = append(subnetIDs, subnet.ID().ToStringOutput())
 
 		if subnetConfig.Public {
@@ -149,5 +151,5 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 		}
 	}
 
-	return vpc.ID(), pulumi.ToStringArrayOutput(subnetIDs), nil
+	return vpc.ID().ToIDOutput(), subnetIDs.ToStringArrayOutput(), err
 }
