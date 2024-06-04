@@ -49,7 +49,7 @@ func stringOutputToString(input pulumi.StringOutput) pulumi.String {
 	return result
 }
 
-func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
+func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, subnets pulumi.StringArrayOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
 
 	targetGroupArnString := stringOutputToString(targetGroupArn)
 
@@ -100,10 +100,10 @@ func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 	}
 
 	_, err = autoscaling.NewGroup(ctx, "asg", &autoscaling.GroupArgs{
-		AvailabilityZones: pulumi.ToStringArray(config.ASG.AvailabilityZones),
-		DesiredCapacity:   pulumi.Int(config.ASG.DesiredCapacity),
-		MaxSize:           pulumi.Int(config.ASG.DesiredCapacity),
-		MinSize:           pulumi.Int(config.ASG.DesiredCapacity),
+		VpcZoneIdentifiers: subnets,
+		DesiredCapacity:    pulumi.Int(config.ASG.DesiredCapacity),
+		MaxSize:            pulumi.Int(config.ASG.DesiredCapacity),
+		MinSize:            pulumi.Int(config.ASG.DesiredCapacity),
 		LaunchTemplate: &autoscaling.GroupLaunchTemplateArgs{
 			Id:      lt.ID(),
 			Version: pulumi.String("$Latest"),
