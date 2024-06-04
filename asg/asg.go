@@ -40,7 +40,19 @@ func loadConfig(filename string) (*asgConfig, error) {
 	return &config, nil
 }
 
+// Define a function to convert pulumi.StringOutput to pulumi.String
+func stringOutputToString(input pulumi.StringOutput) pulumi.String {
+	var result pulumi.String
+	input.ApplyT(func(v string) string {
+		result = pulumi.String(v)
+		return v
+	})
+	return result
+}
+
 func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pulumi.IDOutput, targetGroupArn pulumi.StringOutput, sourceSecurityGroupId pulumi.IDOutput) error {
+
+	targetGroupArnString := stringOutputToString(targetGroupArn)
 
 	// loading config
 
@@ -101,9 +113,7 @@ func CreateASG(ctx *pulumi.Context, configFile string, userdata string, vpcID pu
 			Id:      lt.ID(),
 			Version: pulumi.String("$Latest"),
 		},
-		TargetGroupArns: pulumi.All(targetGroupArn).ApplyT(func(ar string) []string {
-			return []string{ar}
-		}).(pulumi.StringArrayInput),
+		TargetGroupArns: pulumi.StringArray{targetGroupArnString},
 	}, pulumi.DependsOn([]pulumi.Resource{lt}))
 
 	if err != nil {
