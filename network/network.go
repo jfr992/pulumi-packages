@@ -41,10 +41,10 @@ func loadConfig(filename string) (*NetworkConfig, error) {
 	return &config, nil
 }
 
-func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pulumi.StringArrayOutput, error) {
+func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pulumi.StringArrayOutput, pulumi.StringArrayOutput, error) {
 	config, err := loadConfig(configFile)
 	if err != nil {
-		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, fmt.Errorf("failed to load configuration: %v", err)
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, fmt.Errorf("failed to load configuration: %v", err)
 	}
 
 	// vpc creation
@@ -54,7 +54,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 		EnableDnsHostnames: pulumi.Bool(true),
 	})
 	if err != nil {
-		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 	}
 
 	// igw creation
@@ -62,17 +62,18 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 		VpcId: vpc.ID(),
 	})
 	if err != nil {
-		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 	}
 
 	// eip for natgateway
 	eip, err := ec2.NewEip(ctx, "elasticip", &ec2.EipArgs{})
 	if err != nil {
-		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+		return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 	}
 
 	var natGateway *ec2.NatGateway
-	var subnetIDs pulumi.StringArray
+	var publicsubnetIDs pulumi.StringArray
+	var privatesubnetIDs pulumi.StringArray
 
 	// subnet creation
 	for i, subnetConfig := range config.Subnets {
@@ -90,11 +91,10 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 			MapPublicIpOnLaunch: pulumi.Bool(subnetConfig.Public),
 		})
 		if err != nil {
-			return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+			return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 		}
 
 		ctx.Export(fmt.Sprintf("%s-%d", subnetPrefix, i), subnet.ID())
-		subnetIDs = append(subnetIDs, subnet.ID().ToStringOutput())
 
 		if subnetConfig.Public {
 			// nat gateway creation
@@ -103,7 +103,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 				SubnetId:     subnet.ID(),
 			})
 			if err != nil {
-				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 			}
 
 			publicRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
@@ -116,7 +116,7 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 				},
 			})
 			if err != nil {
-				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 			}
 
 			_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-association-%d", subnetPrefix, i), &ec2.RouteTableAssociationArgs{
@@ -125,8 +125,11 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 			})
 			if err != nil {
 				ctx.Log.Error("fatal error", nil)
-				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 			}
+
+			publicsubnetIDs = append(publicsubnetIDs, subnet.ID().ToStringOutput())
+
 		} else {
 			privateRouteTable, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-rt-%d", subnetPrefix, i), &ec2.RouteTableArgs{
 				VpcId: vpc.ID(),
@@ -138,18 +141,21 @@ func CreateNetwork(ctx *pulumi.Context, configFile string) (pulumi.IDOutput, pul
 				},
 			})
 			if err != nil {
-				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 			}
 
 			_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-association-%d", subnetPrefix, i), &ec2.RouteTableAssociationArgs{
 				SubnetId:     subnet.ID(),
 				RouteTableId: privateRouteTable.ID(),
 			})
+
 			if err != nil {
-				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, err
+				return pulumi.IDOutput{}, pulumi.StringArrayOutput{}, pulumi.StringArrayOutput{}, err
 			}
+			privatesubnetIDs = append(privatesubnetIDs, subnet.ID().ToStringOutput())
+
 		}
 	}
 
-	return vpc.ID().ToIDOutput(), subnetIDs.ToStringArrayOutput(), err
+	return vpc.ID().ToIDOutput(), privatesubnetIDs.ToStringArrayOutput(), publicsubnetIDs.ToStringArrayOutput(), err
 }
